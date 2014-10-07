@@ -24,6 +24,79 @@ var ignoredOptions = [
  * @returns {exports.Promise}
  */
 function compile(cmdLine, options) {
+  var parentFolder = path.dirname(options.cwd);
+  var configFilepath = path.join(options.cwd, 'config.rb');
+
+  if (!fse.existsSync(path.join(options.cwd, '.sass-cache'))) {
+    fse.mkdirp.sync(path.join(parentFolder, '.sass-cache'));
+    fse.symlinkSync(path.join(parentFolder, '.sass-cache'), path.join(options.cwd, '.sass-cache'));
+    console.log("Linking up .sass-cache to save for later", path.join(options.cwd, '.sass-cache'), " -> ", path.join(parentFolder, '.sass-cache'));
+  }
+
+  if (!fse.existsSync(configFilepath)) {
+    var configContent = [
+      'puts "In config.rb"',
+      '',
+      // 'module ::Sass',
+      // '  module CacheStores',
+      '    class RelativePathStore < ::Sass::CacheStores::Filesystem',
+      '      def store(key, sha, root)',
+      // '        puts "storing root (class = #{root.class})"',
+      '        root = root.deep_copy',
+      '        root.each do |node|',
+      '          if node.filename',
+      // '            puts "before filename: #{node.filename}"',
+      '            node.filename.sub!("' + options.cwd + '/' + '", "")',
+      // '            puts "after sub filename: #{node.filename}"',
+      '          end',
+      '        end',
+      '        _store(key, Sass::VERSION, sha, Marshal.dump(root))',
+      '      rescue TypeError, LoadError => e',
+      '        Sass::Util.sass_warn "Warning. Error encountered while saving cache #{path_to(key)}: #{e}"',
+      '        nil',
+      '      end',
+      '',
+      '      def retrieve(key, sha)',
+      '        contents = _retrieve(key, Sass::VERSION, sha)',
+      '        if contents',
+      '          root = Marshal.load(contents)',
+      '          root.each do |node|',
+      '            if node.filename',
+      // '              puts "before filename: #{node.filename}"',
+      '              node.filename = "' + options.cwd + '/' + '" + node.filename',
+      // '              puts "after add filename: #{node.filename}"',
+      '            end',
+      '          end',
+      '          root',
+      '        end',
+      '      rescue EOFError, TypeError, ArgumentError, LoadError => e',
+      '        Sass::Util.sass_warn "Warning. Error encountered while reading cache #{path_to(key)}: #{e}"',
+      '        nil',
+      '      end',
+      '',
+      '      def key(sass_dirname, sass_basename)',
+      '        sass_dirname = sass_dirname.sub "' + options.cwd + '/' + '", ""',
+      // '        puts "key -> #{sass_dirname}, #{sass_basename}"',
+      '        dir = Digest::SHA1.hexdigest(sass_dirname)',
+      '        filename = "#{sass_basename}c"',
+      '        "#{dir}/#{filename}"',
+      '      end',
+      '    end',
+      // '  end',
+      // 'end',
+      '',
+      // 'puts "::Sass::Plugin.options[:cache_store]", ::Sass::Plugin.options[:cache_store]',
+      // '::Sass::Plugin.options[:cache_store] = RelativePathStore.new',
+      // 'puts "::Sass::Plugin.options[:cache_store]", ::Sass::Plugin.options[:cache_store]',
+      'sass_options = { :cache_store => RelativePathStore.new(".sass-cache") }'
+    ].join('\n');
+
+    fse.writeFileSync(configFilepath, configContent);
+  }
+
+  cmdLine = cmdLine + ' -c ' + configFilepath;
+  cmdLine = cmdLine + ' --trace';
+
   return new rsvp.Promise(function(resolve, reject) {
     exec(cmdLine, options, function(err, stdout, stderr) {
       if (err) {
