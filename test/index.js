@@ -68,6 +68,22 @@ describe('broccoli-compass', function() {
     });
   });
 
+  it('should only include files defined by options.include', function() {
+    var options = Object.create(defaultOptions);
+    options.include = ['css/*'];
+    var tree = compassCompile(srcDir, options);
+
+    var builder = new broccoli.Builder(tree);
+    return builder.build().then(function(dir) {
+      var fontsDir = path.join(dir.directory, 'fonts');
+      assertCssFilesExist(path.join(dir.directory, cssDir));
+
+      expect(
+        fse.existsSync(fontsDir),
+        'Font directory'
+      ).to.equal(false);
+    });
+  });
 
   it('should exclude files defined by options.exclude', function() {
     var options = Object.create(defaultOptions);
@@ -81,6 +97,28 @@ describe('broccoli-compass', function() {
         fse.existsSync(fontsDir),
         'Fonts directory'
       ).to.equal(false);
+    });
+  });
+
+  it('should exclude files defined by options.exclude minus options.excludeOverrides', function() {
+    var options = Object.create(defaultOptions);
+    options.exclude = ['fonts/**', 'img/**'];
+    options.excludeOverrides = ['img/stub.png'];
+    var tree = compassCompile(srcDir, options);
+
+    var builder = new broccoli.Builder(tree);
+    return builder.build().then(function(dir) {
+      var fontsDir = path.join(dir.directory, 'fonts');
+      expect(
+        fse.existsSync(fontsDir),
+        'Fonts directory'
+      ).to.equal(false);
+
+      var imgDir = path.join(dir.directory, 'img');
+      expect(
+        fse.existsSync(path.join(imgDir, 'stub.png')),
+        'Image file'
+      ).to.equal(true);
     });
   });
 
