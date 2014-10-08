@@ -10,8 +10,10 @@ var expand = require('glob-expand');
 var ignoredOptions = [
       'compassCommand',
       'ignoreErrors',
+      'include',
       'exclude',
-      'files'
+      'files',
+      'excludeOverrides'
     ];
 
 //TODO: collect sass/scss on construct to build the list css generated files for copy.
@@ -54,7 +56,7 @@ function copyRelevant(srcDir, destDir, options) {
   var result;
   var copyPromises = [];
 
-  result = expand({ cwd: srcDir, dot:true, filter: 'isFile'}, ['**/*'].concat(options.exclude));
+  result = expand({ cwd: srcDir, dot:true, filter: 'isFile'}, globPatterns(options));
   for(var i = 0; i < result.length; i++) {
     copyPromises.push(
       copyDir(
@@ -62,6 +64,10 @@ function copyRelevant(srcDir, destDir, options) {
         path.join(destDir, result[i])));
   }
   return rsvp.all(copyPromises);
+}
+
+function globPatterns(options) {
+  return [].concat(options.include).concat(options.exclude).concat(options.excludeOverrides);
 }
 
 /**
@@ -187,7 +193,8 @@ CompassCompiler.prototype.updateCache = function (srcDir, destDir) {
 CompassCompiler.prototype.defaultOptions = {
   // plugin options
   ignoreErrors: false,
-  compassCommand: 'compass'
+  compassCommand: 'compass',
+  include: ['**/*']
 };
 
 module.exports = CompassCompiler;
